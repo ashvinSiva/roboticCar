@@ -5,8 +5,10 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_timer.h"
+#include "esp_err.h"
 #include "esp_log.h"
 #include "esp_rom_sys.h"
+#include "ultrasonic.h"
 
 // Defining Motor Pins based on Motor Driver Pins
 #define LM1 GPIO_NUM_27
@@ -14,13 +16,13 @@
 #define RM3 GPIO_NUM_13
 #define RM4 GPIO_NUM_14
 
-#define TRIG_PIN GPIO_NUM_36
-#define ECHO_PIN GPIO_NUM_33
-
-#define MAX_TIMEOUT_US 30000
-
-#define OBSTACLE_DISTANCE_CM 10.0f
-
+#define TRIG_PIN GPIO_NUM_33
+#define ECHO_PIN GPIO_NUM_34
+#define MAX_DIST 2000
+ultrasonic_sensor_t sensor = { 
+        .trigger_pin = TRIG_PIN, 
+        .echo_pin = ECHO_PIN
+    };
 
 void init_motor() {
     gpio_reset_pin(LM1); 
@@ -75,88 +77,43 @@ void spin_left() {
     stop(); 
 }
 
-void init_USS() {
 
-    // configure trigger pin as output on ESP32
-    gpio_config_t config_trig = {
-        .intr_type = GPIO_INTR_DISABLE, 
-        .mode = GPIO_MODE_OUTPUT,
-        .pin_bit_mask = (1ULL << TRIG_PIN), 
-        .pull_down_en = GPIO_PULLDOWN_DISABLE, 
-        .pull_up_en = GPIO_PULLUP_DISABLE
-    }; 
-
-    gpio_config(&config_trig);
-
-    // configure echo pin as input on ESP32
-    gpio_config_t config_echo = {
-        .intr_type = GPIO_INTR_DISABLE, 
-        .mode = GPIO_MODE_INPUT,
-        .pin_bit_mask = (1ULL << ECHO_PIN), 
-        .pull_down_en = GPIO_PULLDOWN_DISABLE, 
-        .pull_up_en = GPIO_PULLUP_DISABLE
-    };
-
-    gpio_config(&config_echo);
-
-    // Ensure trigger pin initially starts LOW
-    gpio_set_level(TRIG_PIN, 0);
-}
-
-float getDistance() {
+void getDistance() {
     
-    // Initiate Trigger Pin to HIGH
-    gpio_set_level(TRIG_PIN, 1); 
-    esp_rom_delay_us(10);
-    gpio_set_level(TRIG_PIN, 0); 
+    float distance = 0.0f; 
 
-    // Wait for echo pin to go HIGH
-    int64_t start_time = esp_timer_get_time(); 
-    while(gpio_get_level(ECHO_PIN) == 0) {
-        if ((esp_timer_get_time() - start_time) > MAX_TIMEOUT_US) {
-            return -1.0f; 
+    esp_err_t result = ultrasonic_measure(&sensor, MAX_DIST, &distance); 
+
+    if (result != ESP_OK) {
+        printf("Error %d: \n", result); 
+        switch(result) {
+            case ESP_ERR_ULTRASONIC_PING: 
+                printf("Cannot ping (device is in invalid state)\n");
+                break; 
+            case ESP_ERR_ULTRASONIC_PING_TIMEOUT: 
+                printf("Ping timeout (no device found)\n");
+                break; 
+            case ESP_ERR_ULTRASONIC_ECHO_TIMEOUT: 
+                printf("Echo timeout (i.e. distance is too large)\n"); 
+                break; 
+            default: 
+                printf("%s\n", esp_err_to_name(result));
         }
-    }
+    } else {
+        printf("Distance: %0.2f cm\n", distance*100);
+    } 
 
-    // Measure how long ECHO_PIN stays HIGH
-    int64_t start_echo = esp_timer_get_time(); 
-    while(gpio_get_level(ECHO_PIN) == 1) {
-        if ((esp_timer_get_time() - start_echo) > MAX_TIMEOUT_US) {
-            return -1.0f; 
-        }
-    }
-    int64_t end_echo = esp_timer_get_time(); 
-
-    int64_t delta_time = end_echo - start_echo; 
-    return (delta_time*0.0343f)/2.0f;
 }
 
 void app_main() {
    
-    init_motor(); 
-    init_USS();
+    init_motor();  
+    ultrasonic_init(&sensor);
 
     while(1) {
-        float distance = getDistance(); 
 
-        while (distance > OBSTACLE_DISTANCE_CM) {
-            drive(); 
-            distance = getDistance();
-            printf("Distance: %.2f cm\n", distance);
-            vTaskDelay( pdMS_TO_TICKS(100) );
-        }
-        stop(); 
-        reverse(); 
-        spin_left(); 
+        getDistance(); 
+        vTaskDelay( pdMS_TO_TICKS(1000) );
         
-        float distance_left = getDistance(); 
-        if (distance_left > OBSTACLE_DISTANCE_CM) {
-            continue;
-        } else {
-            spin_right(); 
-            spin_right(); 
-        }
-        drive(); 
-        vTaskDelay( pdMS_TO_TICKS(100) );
     }
 }

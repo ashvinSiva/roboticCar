@@ -1,0 +1,50 @@
+dependencies:
+  esp-idf-lib/esp_idf_lib_helpers:
+    component_hash: 689853bb8993434f9556af0f2816e808bf77b5d22100144b21f3519993daf237
+    dependencies: []
+    source:
+      registry_url: https://components.espressif.com
+      type: service
+    targets:
+    - esp32
+    - esp32c2
+    - esp32c3
+    - esp32c5
+    - esp32c6
+    - esp32c61
+    - esp32h2
+    - esp32p4
+    - esp32s2
+    - esp32s3
+    version: 1.4.0
+  esp-idf-lib/ultrasonic:
+    component_hash: da9c0899db56f6a994090e6d8257dc11a2daae241cf9368da7d06b95b7d0ee72
+    dependencies:
+    - name: esp-idf-lib/esp_idf_lib_helpers
+      registry_url: https://components.espressif.com
+      require: private
+      version: '*'
+    source:
+      registry_url: https://components.espressif.com/
+      type: service
+    targets:
+    - esp32
+    - esp32c2
+    - esp32c3
+    - esp32c5
+    - esp32c6
+    - esp32c61
+    - esp32h2
+    - esp32p4
+    - esp32s2
+    - esp32s3
+    version: 1.1.0
+  idf:
+    source:
+      type: idf
+    version: 6.1.0
+direct_dependencies:
+- esp-idf-lib/ultrasonic
+manifest_hash: 2571377eab5b2b799b98e17b3db30bd68dcecb22a4e9e80fd14f2a235d70ce52
+target: esp32
+version: 3.0.0
